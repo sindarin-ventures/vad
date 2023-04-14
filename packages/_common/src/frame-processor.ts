@@ -42,6 +42,9 @@ export interface FrameProcessorOptions {
    * it will be discarded and `onVADMisfire` will be run instead of `onSpeechEnd`.
    */
   minSpeechFrames: number
+
+  /** Only fire the start event if `minSpeechFramesStart` threshold has been met. */
+  minSpeechFramesStart: number
 }
 
 export const defaultFrameProcessorOptions: FrameProcessorOptions = {
@@ -51,6 +54,7 @@ export const defaultFrameProcessorOptions: FrameProcessorOptions = {
   redemptionFrames: 8,
   frameSamples: 1536,
   minSpeechFrames: 3,
+  minSpeechFramesStart: 1
 }
 
 export function validateOptions(options: FrameProcessorOptions) {
@@ -76,6 +80,9 @@ export function validateOptions(options: FrameProcessorOptions) {
   }
   if (options.redemptionFrames < 0) {
     log.error("preSpeechPadFrames should be positive")
+  }
+  if (options.minSpeechFramesStart < 1) {
+    log.error("minSpeechFrames should be positive")
   }
 }
 
@@ -109,6 +116,7 @@ export class FrameProcessor implements FrameProcessorInterface {
   speaking: boolean = false
   audioBuffer: { frame: Float32Array; isSpeech: boolean }[]
   redemptionCounter = 0
+  speechFrameCounter: number = 0
   active = false
 
   constructor(
@@ -127,6 +135,7 @@ export class FrameProcessor implements FrameProcessorInterface {
     this.audioBuffer = []
     this.modelResetFunc()
     this.redemptionCounter = 0
+    this.speechFrameCounter = 0
   }
 
   pause = () => {
@@ -176,9 +185,17 @@ export class FrameProcessor implements FrameProcessorInterface {
       this.redemptionCounter = 0
     }
 
+    const lastBuffer = this.audioBuffer.slice(-1)[0];
+    if (lastBuffer && lastBuffer.isSpeech) {
+      this.speechFrameCounter++;
+    } else {
+      this.speechFrameCounter = 0;
+    }
+
     if (
       probs.isSpeech >= this.options.positiveSpeechThreshold &&
-      !this.speaking
+      !this.speaking &&
+      this.speechFrameCounter >= this.options.minSpeechFramesStart
     ) {
       this.speaking = true
       return { probs, msg: Message.SpeechStart }
