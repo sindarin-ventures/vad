@@ -208,6 +208,7 @@ export class AudioNodeVAD {
       redemptionFrames: this.options.redemptionFrames,
       preSpeechPadFrames: this.options.preSpeechPadFrames,
       minSpeechFrames: this.options.minSpeechFrames,
+      minSpeechFramesStart: this.options.minSpeechFramesStart
     })
 
     vadNode.port.onmessage = async (ev: MessageEvent) => {
